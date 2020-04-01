@@ -88,6 +88,9 @@ func (c *CommandManager) Process(subject Subject, raw string) (bool, string) {
 
 	c.mutex.RLock()
 	command, ok := c.commands[input.Command]
+	if !ok {
+		command, ok = c.commands[input.CommandRaw]
+	}
 	c.mutex.RUnlock()
 
 	if !ok {

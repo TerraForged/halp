@@ -3,10 +3,11 @@ package cmd
 import "strings"
 
 type Input struct {
-	Manager *CommandManager
-	Command string
-	Args    []string
-	Lines   []string
+	Manager    *CommandManager
+	Command    string
+	CommandRaw string
+	Args       []string
+	Lines      []string
 }
 
 func ParseInput(s string, c *CommandManager) *Input {
@@ -19,7 +20,7 @@ func ParseInput(s string, c *CommandManager) *Input {
 		return nil
 	}
 
-	name, args := ParseCommand(lines[0])
+	raw, name, args := ParseCommand(lines[0])
 	if name == "" {
 		return nil
 	}
@@ -29,26 +30,28 @@ func ParseInput(s string, c *CommandManager) *Input {
 	}
 
 	return &Input{
-		Manager: c,
-		Command: name,
-		Args:    args,
-		Lines:   lines,
+		Manager:    c,
+		Command:    name,
+		CommandRaw: raw,
+		Args:       args,
+		Lines:      lines,
 	}
 }
 
-func ParseCommand(s string) (name string, args []string) {
+func ParseCommand(s string) (raw, name string, args []string) {
 	if s[0] != '!' {
-		return "", nil
+		return "", "", nil
 	}
 
-	parts := strings.Split(s, " ")
+	raw = strings.ToLower(s[1:])
+	parts := strings.Split(raw, " ")
 
 	// name is the first word, minus the '!' prefix
-	name = parts[0][1:]
+	name = parts[0]
 	if len(parts) > 1 {
 		// args are the remaining parts of the input
 		args = parts[1:]
 	}
 
-	return strings.ToLower(name), args
+	return raw, name, args
 }

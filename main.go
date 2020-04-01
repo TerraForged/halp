@@ -46,8 +46,8 @@ func main() {
 }
 
 func setup(commands *cmd.CommandManager) {
-	commands.Register("help", &cmd.Command{
-		Exec:  cmd.Wrap(help),
+	commands.Register("list", &cmd.Command{
+		Exec:  cmd.Wrap(list),
 		Fixed: true,
 	})
 	commands.Register("learn", &cmd.Command{
@@ -88,7 +88,7 @@ func handle(bot *disgord.Client, commands *cmd.CommandManager) {
 	})
 }
 
-func help(i *cmd.Input) string {
+func list(i *cmd.Input) string {
 	buf := bytes.Buffer{}
 	for _, name := range i.Manager.List() {
 		if buf.Len() > 0 {
@@ -110,7 +110,7 @@ func learn(i *cmd.Input) string {
 		return "No message lines provided"
 	}
 
-	name := i.Args[0]
+	name := strings.Join(i.Args, " ")
 	message := strings.Join(i.Lines, "\n")
 	return i.Manager.Register(name, &cmd.Command{
 		Exec:  &cmd.Message{Message: message},
