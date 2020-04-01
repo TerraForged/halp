@@ -64,6 +64,14 @@ func setup(commands *cmd.CommandManager) {
 }
 
 func handle(bot *disgord.Client, commands *cmd.CommandManager) {
+	bot.On(disgord.EvtReady, func(s disgord.Session, r *disgord.Ready) {
+		log.Println("Setting status")
+		e := s.UpdateStatusString("!list")
+		if e != nil {
+			log.Println(e)
+		}
+	})
+
 	bot.On(disgord.EvtGuildCreate, func(s disgord.Session, g *disgord.GuildCreate) {
 		log.Println("Joined guild:", g.Guild.Name)
 	})
