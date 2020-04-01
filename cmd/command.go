@@ -1,7 +1,7 @@
 package cmd
 
 type Executor interface {
-	Call(input *Input) string
+	Call(s Subject, input *Input) string
 }
 
 type Command struct {
@@ -15,10 +15,10 @@ type Message struct {
 }
 
 type funcExecutor struct {
-	fn func(i *Input) string
+	fn func(s Subject, i *Input) string
 }
 
-func Wrap(fn func(i *Input) string) Executor {
+func Wrap(fn func(s Subject, i *Input) string) Executor {
 	return &funcExecutor{fn: fn}
 }
 
@@ -46,14 +46,15 @@ func (c *Command) Test(subject Subject) bool {
 				return true
 			}
 		}
+		return false
 	}
 	return true
 }
 
-func (fn *funcExecutor) Call(i *Input) string {
-	return fn.fn(i)
+func (fn *funcExecutor) Call(s Subject, i *Input) string {
+	return fn.fn(s, i)
 }
 
-func (m *Message) Call(i *Input) string {
+func (m *Message) Call(s Subject, i *Input) string {
 	return m.Message
 }

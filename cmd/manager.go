@@ -57,17 +57,15 @@ func (c *CommandManager) Unregister(name string) string {
 	return "Executor unregistered"
 }
 
-func (c *CommandManager) List() []string {
+func (c *CommandManager) List(subject Subject) []string {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
-	names := make([]string, len(c.commands))
-
-	i := 0
-	for k, _ := range c.commands {
-		names[i] = k
-		i++
+	var names []string
+	for k, c := range c.commands {
+		if c.Test(subject) {
+			names = append(names, k)
+		}
 	}
-
 	sort.Strings(names)
 	return names
 }
@@ -101,7 +99,7 @@ func (c *CommandManager) Process(subject Subject, raw string) (bool, string) {
 		return false, "No permission"
 	}
 
-	return true, command.Exec.Call(input)
+	return true, command.Exec.Call(subject, input)
 }
 
 func (c *CommandManager) Load() {

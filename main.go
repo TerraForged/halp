@@ -13,11 +13,12 @@ import (
 )
 
 var (
-	perms = []string{"dev"}
+	perms = []string{"halp-admin"}
 	token = flag.String("token", "", "Discord token")
 )
 
 type DiscordSubject struct {
+	roles []string
 	ctx   context.Context
 	id    disgord.Snowflake
 	guild disgord.Snowflake
@@ -75,6 +76,7 @@ func handle(bot *disgord.Client, commands *cmd.CommandManager) {
 		subject := &DiscordSubject{
 			sess:  s,
 			ctx:   m.Ctx,
+			roles: nil,
 			id:    m.Message.Author.ID,
 			guild: m.Message.GuildID,
 		}
@@ -88,9 +90,9 @@ func handle(bot *disgord.Client, commands *cmd.CommandManager) {
 	})
 }
 
-func list(i *cmd.Input) string {
+func list(s cmd.Subject, i *cmd.Input) string {
 	buf := bytes.Buffer{}
-	for _, name := range i.Manager.List() {
+	for _, name := range i.Manager.List(s) {
 		if buf.Len() > 0 {
 			buf.WriteString(", ")
 		}
@@ -101,7 +103,7 @@ func list(i *cmd.Input) string {
 	return buf.String()
 }
 
-func learn(i *cmd.Input) string {
+func learn(_ cmd.Subject, i *cmd.Input) string {
 	if len(i.Args) == 0 {
 		return "No keyword/phrase provided"
 	}
@@ -118,7 +120,7 @@ func learn(i *cmd.Input) string {
 	})
 }
 
-func forget(i *cmd.Input) string {
+func forget(_ cmd.Subject, i *cmd.Input) string {
 	if len(i.Args) == 0 {
 		return "No command provided"
 	}
@@ -127,6 +129,10 @@ func forget(i *cmd.Input) string {
 }
 
 func (s *DiscordSubject) Perms() []string {
+	if s.roles != nil {
+		return s.roles
+	}
+
 	m, e := s.sess.GetMember(s.ctx, s.guild, s.id)
 	if e != nil {
 		log.Println(e)
@@ -139,15 +145,15 @@ func (s *DiscordSubject) Perms() []string {
 		return nil
 	}
 
-	perms := make([]string, len(m.Roles))
+	s.roles = make([]string, len(m.Roles))
 	for i, rid := range m.Roles {
 		name := name(roles, rid)
 		if name == "" {
 			return nil
 		}
-		perms[i] = name
+		s.roles[i] = name
 	}
-	return perms
+	return s.roles
 }
 
 func name(array []*disgord.Role, value disgord.Snowflake) string {
