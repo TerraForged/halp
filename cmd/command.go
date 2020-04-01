@@ -1,7 +1,5 @@
 package cmd
 
-import "log"
-
 type Executor interface {
 	Call(input *Input) string
 }
@@ -40,9 +38,11 @@ func (c *Command) TestPerm(perm string) bool {
 func (c *Command) Test(subject Subject) bool {
 	if c.RequiresPerm() {
 		perms := subject.Perms()
+		if perms == nil {
+			return false
+		}
 		for _, perm := range perms {
 			if c.TestPerm(perm) {
-				log.Println("has perm!")
 				return true
 			}
 		}

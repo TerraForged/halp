@@ -13,9 +13,16 @@ import (
 )
 
 var (
-	ownerId = "99824915045191680"
-	token   = flag.String("token", "", "Discord token")
+	perms = []string{"dev"}
+	token = flag.String("token", "", "Discord token")
 )
+
+type DiscordSubject struct {
+	ctx   context.Context
+	id    disgord.Snowflake
+	guild disgord.Snowflake
+	sess  disgord.Session
+}
 
 func main() {
 	flag.Parse()
@@ -46,12 +53,12 @@ func setup(commands *cmd.CommandManager) {
 	commands.Register("learn", &cmd.Command{
 		Exec:  cmd.Wrap(learn),
 		Fixed: true,
-		Perms: []string{ownerId},
+		Perms: perms,
 	})
 	commands.Register("forget", &cmd.Command{
 		Exec:  cmd.Wrap(forget),
 		Fixed: true,
-		Perms: []string{ownerId},
+		Perms: perms,
 	})
 }
 
@@ -65,7 +72,13 @@ func handle(bot *disgord.Client, commands *cmd.CommandManager) {
 			return
 		}
 
-		subject := cmd.NewSubject(m.Message.Author.ID.String())
+		subject := &DiscordSubject{
+			sess:  s,
+			ctx:   m.Ctx,
+			id:    m.Message.Author.ID,
+			guild: m.Message.GuildID,
+		}
+
 		if success, message := commands.Process(subject, m.Message.Content); success {
 			_, e := s.SendMsg(m.Ctx, m.Message.ChannelID, message)
 			if e != nil {
@@ -111,4 +124,37 @@ func forget(i *cmd.Input) string {
 	}
 	name := strings.Join(i.Args, " ")
 	return i.Manager.Unregister(name)
+}
+
+func (s *DiscordSubject) Perms() []string {
+	m, e := s.sess.GetMember(s.ctx, s.guild, s.id)
+	if e != nil {
+		log.Println(e)
+		return nil
+	}
+
+	roles, e := s.sess.GetGuildRoles(s.ctx, s.guild)
+	if e != nil {
+		log.Println(e)
+		return nil
+	}
+
+	perms := make([]string, len(m.Roles))
+	for i, rid := range m.Roles {
+		name := name(roles, rid)
+		if name == "" {
+			return nil
+		}
+		perms[i] = name
+	}
+	return perms
+}
+
+func name(array []*disgord.Role, value disgord.Snowflake) string {
+	for _, v := range array {
+		if v.ID == value {
+			return v.Name
+		}
+	}
+	return ""
 }
