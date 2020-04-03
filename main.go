@@ -31,7 +31,6 @@ func main() {
 	commands := cmd.NewManager("commands.json")
 	commands.Load()
 	setup(commands)
-	defer commands.Save()
 
 	bot, e := disgord.NewClient(disgord.Config{BotToken: *token})
 	if e != nil {
@@ -119,6 +118,8 @@ func learn(_ cmd.Subject, i *cmd.Input) string {
 	if len(i.Lines) < 1 {
 		return "No message lines provided"
 	}
+
+	defer i.Manager.Save()
 
 	name := strings.Join(i.Args, " ")
 	message := strings.Join(i.Lines, "\n")

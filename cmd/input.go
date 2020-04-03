@@ -39,6 +39,10 @@ func ParseInput(s string, c *CommandManager) *Input {
 }
 
 func ParseCommand(s string) (raw, name string, args []string) {
+	if len(s) < 2 {
+		return "", "", nil
+	}
+
 	if s[0] != '!' {
 		return "", "", nil
 	}
