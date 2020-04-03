@@ -11,6 +11,12 @@ type Input struct {
 }
 
 func ParseInput(s string, c *CommandManager) *Input {
+	// command must be at least one character in length after '!'
+	if len(s) < 2 {
+		return nil
+	}
+
+	// commands start with '!'
 	if s[0] != '!' {
 		return nil
 	}
@@ -20,12 +26,16 @@ func ParseInput(s string, c *CommandManager) *Input {
 		return nil
 	}
 
-	raw, name, args := ParseCommand(lines[0])
+	// first line is the command
+	raw, name, args := parseCommandParts(lines[0])
 	if name == "" {
 		return nil
 	}
 
-	if len(lines) > 1 {
+	// drain first line
+	if len(lines) == 1 {
+		lines = []string{}
+	} else {
 		lines = lines[1:]
 	}
 
@@ -38,24 +48,14 @@ func ParseInput(s string, c *CommandManager) *Input {
 	}
 }
 
-func ParseCommand(s string) (raw, name string, args []string) {
-	if len(s) < 2 {
-		return "", "", nil
-	}
-
-	if s[0] != '!' {
-		return "", "", nil
-	}
-
+func parseCommandParts(s string) (raw, name string, args []string) {
 	raw = strings.ToLower(s[1:])
 	parts := strings.Split(raw, " ")
-
 	// name is the first word, minus the '!' prefix
 	name = parts[0]
 	if len(parts) > 1 {
 		// args are the remaining parts of the input
 		args = parts[1:]
 	}
-
 	return raw, name, args
 }
