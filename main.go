@@ -23,6 +23,7 @@ type DiscordSubject struct {
 	id    disgord.Snowflake
 	guild disgord.Snowflake
 	sess  disgord.Session
+	msg   *disgord.Message
 }
 
 func main() {
@@ -60,6 +61,11 @@ func setup(commands *cmd.CommandManager) {
 		Fixed: true,
 		Perms: perms,
 	})
+	commands.Register("del", &cmd.Command{
+		Exec:  cmd.Wrap(del),
+		Fixed: true,
+		Perms: perms,
+	})
 }
 
 func handle(bot *disgord.Client, commands *cmd.CommandManager) {
@@ -82,13 +88,14 @@ func handle(bot *disgord.Client, commands *cmd.CommandManager) {
 
 		subject := &DiscordSubject{
 			sess:  s,
+			msg:   m.Message,
 			ctx:   m.Ctx,
 			roles: nil,
 			id:    m.Message.Author.ID,
 			guild: m.Message.GuildID,
 		}
 
-		if success, message := commands.Process(subject, m.Message.Content); success {
+		if success, message := commands.Process(subject, m.Message.Content); success && message != "" {
 			_, e := s.SendMsg(m.Ctx, m.Message.ChannelID, message)
 			if e != nil {
 				log.Println(e)
@@ -135,6 +142,50 @@ func forget(_ cmd.Subject, i *cmd.Input) string {
 	}
 	name := strings.Join(i.Args, " ")
 	return i.Manager.Unregister(name)
+}
+
+func del(s cmd.Subject, i *cmd.Input) string {
+	sub, ok := s.(*DiscordSubject)
+	if !ok {
+		return "Internal error :S"
+	}
+
+	params := &disgord.GetMessagesParams{
+		After: disgord.ParseSnowflakeString(i.Args[0]),
+	}
+
+	before := ""
+	if len(i.Args) == 2 {
+		before = i.Args[1]
+	}
+
+	results, e := sub.sess.GetMessages(sub.ctx, sub.msg.ChannelID, params)
+	if e != nil {
+		return e.Error()
+	}
+
+	delParams := &disgord.DeleteMessagesParams{
+		Messages: []disgord.Snowflake{disgord.ParseSnowflakeString(i.Args[0])},
+	}
+
+	for i := len(results) - 1; i > 0; i-- {
+		r := results[i]
+		delParams.Messages = append(delParams.Messages, r.ID)
+		if r.ID.String() == before {
+			break
+		}
+	}
+
+	if len(delParams.Messages) < 2 {
+		return "Not enough messages to delete"
+	}
+
+	e = sub.sess.DeleteMessages(sub.ctx, sub.msg.ChannelID, delParams)
+	if e != nil {
+		return e.Error()
+	}
+
+	return ""
 }
 
 func (s *DiscordSubject) Perms() []string {
