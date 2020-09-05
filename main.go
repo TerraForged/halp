@@ -154,20 +154,24 @@ func del(s cmd.Subject, i *cmd.Input) string {
 		After: disgord.ParseSnowflakeString(i.Args[0]),
 	}
 
-	before := ""
-	if len(i.Args) == 2 {
-		before = i.Args[1]
-	}
-
+	// get messages since the 'from' id (arg[0])
 	results, e := sub.sess.GetMessages(sub.ctx, sub.msg.ChannelID, params)
 	if e != nil {
 		return e.Error()
 	}
 
+	// get messages up to the 'to' id (arg[1])
+	before := ""
+	if len(i.Args) == 2 {
+		before = i.Args[1]
+	}
+
+	// holds a list of message id's to delete
 	delParams := &disgord.DeleteMessagesParams{
 		Messages: []disgord.Snowflake{disgord.ParseSnowflakeString(i.Args[0])},
 	}
 
+	// results are ordered newest to oldest, oldest being the 'from' id (arg[0])
 	for i := len(results) - 1; i > 0; i-- {
 		r := results[i]
 		delParams.Messages = append(delParams.Messages, r.ID)
@@ -180,6 +184,10 @@ func del(s cmd.Subject, i *cmd.Input) string {
 		return "Not enough messages to delete"
 	}
 
+	// add the command itself to the list of id's to delete
+	delParams.Messages = append(delParams.Messages, sub.msg.ID)
+
+	// perform the delete
 	e = sub.sess.DeleteMessages(sub.ctx, sub.msg.ChannelID, delParams)
 	if e != nil {
 		return e.Error()
