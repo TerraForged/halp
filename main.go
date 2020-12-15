@@ -34,14 +34,15 @@ func main() {
 	commands.Load()
 	setup(commands)
 
-	bot, e := disgord.NewClient(disgord.Config{BotToken: *token})
+	bot := disgord.New(disgord.Config{BotToken: *token})
+	handle(bot, commands)
+
+	e := bot.Gateway().Connect()
 	if e != nil {
 		panic(e)
 	}
 
-	handle(bot, commands)
-
-	e = bot.StayConnectedUntilInterrupted(context.Background())
+	e = bot.Gateway().StayConnectedUntilInterrupted()
 	if e != nil {
 		panic(e)
 	}
@@ -70,7 +71,7 @@ func setup(commands *cmd.CommandManager) {
 }
 
 func handle(bot *disgord.Client, commands *cmd.CommandManager) {
-	bot.On(disgord.EvtReady, func(s disgord.Session, r *disgord.Ready) {
+	bot.Gateway().Ready(func(s disgord.Session, r *disgord.Ready) {
 		log.Println("Setting status")
 		e := s.UpdateStatusString("!list")
 		if e != nil {
@@ -78,11 +79,11 @@ func handle(bot *disgord.Client, commands *cmd.CommandManager) {
 		}
 	})
 
-	bot.On(disgord.EvtGuildCreate, func(s disgord.Session, g *disgord.GuildCreate) {
+	bot.Gateway().GuildCreate(func(s disgord.Session, g *disgord.GuildCreate) {
 		log.Println("Joined guild:", g.Guild.Name)
 	})
 
-	bot.On(disgord.EvtMessageCreate, func(s disgord.Session, m *disgord.MessageCreate) {
+	bot.Gateway().MessageCreate(func(s disgord.Session, m *disgord.MessageCreate) {
 		if m.Message.Author.Bot {
 			return
 		}
@@ -94,14 +95,14 @@ func handle(bot *disgord.Client, commands *cmd.CommandManager) {
 		subject := &DiscordSubject{
 			sess:  s,
 			msg:   m.Message,
-			ctx:   m.Ctx,
+			ctx:   context.Background(),
 			roles: nil,
 			id:    m.Message.Author.ID,
 			guild: m.Message.GuildID,
 		}
 
 		if success, message := commands.Process(subject, m.Message.Content); success && message != "" {
-			_, e := s.SendMsg(m.Ctx, m.Message.ChannelID, message)
+			_, e := s.SendMsg(m.Message.ChannelID, message)
 			if e != nil {
 				log.Println(e)
 			}
@@ -160,7 +161,7 @@ func del(s cmd.Subject, i *cmd.Input) string {
 	}
 
 	// get messages since the 'from' id (arg[0])
-	results, e := sub.sess.GetMessages(sub.ctx, sub.msg.ChannelID, params)
+	results, e := sub.sess.Channel(sub.msg.ChannelID).GetMessages(params)
 	if e != nil {
 		return e.Error()
 	}
@@ -193,7 +194,7 @@ func del(s cmd.Subject, i *cmd.Input) string {
 	delParams.Messages = append(delParams.Messages, sub.msg.ID)
 
 	// perform the delete
-	e = sub.sess.DeleteMessages(sub.ctx, sub.msg.ChannelID, delParams)
+	e = sub.sess.Channel(sub.msg.ChannelID).DeleteMessages(delParams)
 	if e != nil {
 		return e.Error()
 	}
@@ -219,7 +220,7 @@ func pingBlock(s disgord.Session, m *disgord.MessageCreate) bool {
 		return false
 	}
 
-	e := s.DeleteMessage(m.Ctx, m.Message.ChannelID, m.Message.ID)
+	e := s.Channel(m.Message.ChannelID).Message(m.Message.ID).Delete()
 	if e != nil {
 		log.Println(e)
 		return true
@@ -230,8 +231,8 @@ func pingBlock(s disgord.Session, m *disgord.MessageCreate) bool {
 		message = strings.Replace(message, user.Mention(), user.Username, -1)
 	}
 
-	_, e = s.SendMsg(m.Ctx, m.Message.ChannelID, "pls no ping")
-	_, e = s.SendMsg(m.Ctx, m.Message.ChannelID, m.Message.Author.Username+": "+message)
+	_, e = s.SendMsg(m.Message.ChannelID, "pls no ping")
+	_, e = s.SendMsg(m.Message.ChannelID, m.Message.Author.Username+": "+message)
 
 	if e != nil {
 		log.Println(e)
@@ -246,13 +247,13 @@ func (s *DiscordSubject) Perms() []string {
 		return s.roles
 	}
 
-	m, e := s.sess.GetMember(s.ctx, s.guild, s.id)
+	m, e := s.sess.Guild(s.guild).Member(s.id).Get()
 	if e != nil {
 		log.Println(e)
 		return nil
 	}
 
-	roles, e := s.sess.GetGuildRoles(s.ctx, s.guild)
+	roles, e := s.sess.Guild(s.guild).GetRoles()
 	if e != nil {
 		log.Println(e)
 		return nil
