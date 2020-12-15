@@ -209,8 +209,9 @@ func pingBlock(s disgord.Session, m *disgord.MessageCreate) bool {
 
 	block := false
 	for _, user := range mentions {
-		if user.Username == "dags" {
+		if index(admins, user.Username) != -1 {
 			block = true
+			break
 		}
 	}
 
@@ -262,6 +263,15 @@ func (s *DiscordSubject) Perms() []string {
 		s.roles[i] = name
 	}
 	return s.roles
+}
+
+func index(src []string, value string) int {
+	for i, s := range src {
+		if s == value {
+			return i
+		}
+	}
+	return -1
 }
 
 func name(array []*disgord.Role, value disgord.Snowflake) string {
