@@ -4,17 +4,15 @@ import (
 	"bytes"
 	"context"
 	"flag"
+	"github.com/TerraForged/halp/cmd"
+	"github.com/andersfylling/disgord"
 	"log"
 	"strings"
-
-	"github.com/andersfylling/disgord"
-
-	"github.com/TerraForged/halp/cmd"
 )
 
 var (
 	perms  = []string{"halp-admin"}
-	admins = []string{"dags", "Won-Ton"}
+	admins = []string{"dags", "Won-Ton", "halp"}
 	token  = flag.String("token", "", "Discord token")
 )
 
@@ -30,22 +28,44 @@ type DiscordSubject struct {
 func main() {
 	flag.Parse()
 
+	log.Println("Loading command manager")
 	commands := cmd.NewManager("commands.json")
 	commands.Load()
 	setup(commands)
 
-	bot := disgord.New(disgord.Config{BotToken: *token})
+	log.Println("Creating discord client")
+	bot := disgord.New(disgord.Config{
+		BotToken:           *token,
+		Intents:            disgord.AllIntents(),
+		ProjectName:        "halp",
+		LoadMembersQuietly: true,
+		RejectEvents: []string{
+			// rarely used, and causes unnecessary spam
+			disgord.EvtTypingStart,
+			// these require special privilege
+			// https://discord.com/developers/docs/topics/gateway#privileged-intents
+			disgord.EvtPresenceUpdate,
+			disgord.EvtGuildMemberAdd,
+			disgord.EvtGuildMemberUpdate,
+			disgord.EvtGuildMemberRemove,
+		},
+		Presence: &disgord.UpdateStatusPayload{
+			Game: &disgord.Activity{
+				Name: "!ping",
+			},
+		},
+	})
+
 	handle(bot, commands)
 
-	e := bot.Gateway().Connect()
+	log.Println("Connecting...")
+	e := bot.Gateway().StayConnectedUntilInterrupted()
+
 	if e != nil {
 		panic(e)
 	}
 
-	e = bot.Gateway().StayConnectedUntilInterrupted()
-	if e != nil {
-		panic(e)
-	}
+	log.Println("Shutting down")
 }
 
 func setup(commands *cmd.CommandManager) {
@@ -226,14 +246,21 @@ func pingBlock(s disgord.Session, m *disgord.MessageCreate) bool {
 		return true
 	}
 
-	message := m.Message.Content
-	for _, user := range mentions {
-		message = strings.Replace(message, user.Mention(), user.Username, -1)
+	header := "**From " + m.Message.Author.Username + ":**"
+	content := m.Message.Content
+
+	if m.Message.MessageReference != nil {
+		ref := m.Message.MessageReference
+		url := "https://discord.com/channels/" + ref.GuildID.String() + "/" + ref.ChannelID.String() + "/" + ref.MessageID.String()
+		header = header + "\n_Replying to: <" + url + ">_"
 	}
 
-	_, e = s.SendMsg(m.Message.ChannelID, "pls no ping")
-	_, e = s.SendMsg(m.Message.ChannelID, m.Message.Author.Username+": "+message)
+	for _, user := range mentions {
+		content = strings.ReplaceAll(content, "<@"+user.ID.String()+">", user.Username)
+		content = strings.ReplaceAll(content, "<@!"+user.ID.String()+">", user.Username)
+	}
 
+	_, e = s.SendMsg(m.Message.ChannelID, "@ Mentions Removed!\n"+header+"\n"+content)
 	if e != nil {
 		log.Println(e)
 		return true
