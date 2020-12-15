@@ -13,8 +13,9 @@ import (
 )
 
 var (
-	perms = []string{"halp-admin"}
-	token = flag.String("token", "", "Discord token")
+	perms  = []string{"halp-admin"}
+	admins = []string{"dags", "Won-Ton"}
+	token  = flag.String("token", "", "Discord token")
 )
 
 type DiscordSubject struct {
@@ -83,6 +84,10 @@ func handle(bot *disgord.Client, commands *cmd.CommandManager) {
 
 	bot.On(disgord.EvtMessageCreate, func(s disgord.Session, m *disgord.MessageCreate) {
 		if m.Message.Author.Bot {
+			return
+		}
+
+		if pingBlock(s, m) {
 			return
 		}
 
@@ -194,6 +199,41 @@ func del(s cmd.Subject, i *cmd.Input) string {
 	}
 
 	return ""
+}
+
+func pingBlock(s disgord.Session, m *disgord.MessageCreate) bool {
+	mentions := m.Message.Mentions
+	if len(mentions) == 0 {
+		return false
+	}
+
+	block := false
+	for _, user := range mentions {
+		if user.Username == "dags" {
+			block = true
+		}
+	}
+
+	if !block {
+		return false
+	}
+
+	e := s.DeleteMessage(m.Ctx, m.Message.ChannelID, m.Message.ID)
+	if e != nil {
+		log.Println(e)
+		return true
+	}
+
+	message := m.Message.Author.Username + ": " + strings.Replace(m.Message.Content, "@", "#", -1)
+	_, e = s.SendMsg(m.Ctx, m.Message.ChannelID, "pls no ping")
+	_, e = s.SendMsg(m.Ctx, m.Message.ChannelID, message)
+
+	if e != nil {
+		log.Println(e)
+		return true
+	}
+
+	return true
 }
 
 func (s *DiscordSubject) Perms() []string {
