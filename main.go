@@ -225,9 +225,13 @@ func pingBlock(s disgord.Session, m *disgord.MessageCreate) bool {
 		return true
 	}
 
-	message := m.Message.Author.Username + ": " + strings.Replace(m.Message.Content, "@", "#", -1)
+	message := m.Message.Content
+	for _, user := range mentions {
+		message = strings.Replace(message, user.Mention(), user.Username, -1)
+	}
+
 	_, e = s.SendMsg(m.Ctx, m.Message.ChannelID, "pls no ping")
-	_, e = s.SendMsg(m.Ctx, m.Message.ChannelID, message)
+	_, e = s.SendMsg(m.Ctx, m.Message.ChannelID, m.Message.Author.Username+": "+message)
 
 	if e != nil {
 		log.Println(e)
