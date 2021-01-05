@@ -12,7 +12,7 @@ import (
 
 var (
 	perms  = []string{"halp-admin"}
-	admins = []string{"dags", "Won-Ton", "halp"}
+	admins = []string{"dags", "Won-Ton"}
 	token  = flag.String("token", "", "Discord token")
 )
 
@@ -108,7 +108,7 @@ func handle(bot *disgord.Client, commands *cmd.CommandManager) {
 			return
 		}
 
-		if pingBlock(s, m) {
+		if pingBlock(s, m.Message) {
 			return
 		}
 
@@ -127,6 +127,14 @@ func handle(bot *disgord.Client, commands *cmd.CommandManager) {
 				log.Println(e)
 			}
 		}
+	})
+
+	bot.Gateway().MessageUpdate(func(s disgord.Session, m *disgord.MessageUpdate) {
+		if m.Message.Author.Bot {
+			return
+		}
+
+		pingBlock(s, m.Message)
 	})
 }
 
@@ -222,8 +230,8 @@ func del(s cmd.Subject, i *cmd.Input) string {
 	return ""
 }
 
-func pingBlock(s disgord.Session, m *disgord.MessageCreate) bool {
-	mentions := m.Message.Mentions
+func pingBlock(s disgord.Session, m *disgord.Message) bool {
+	mentions := m.Mentions
 	if len(mentions) == 0 {
 		return false
 	}
@@ -240,17 +248,17 @@ func pingBlock(s disgord.Session, m *disgord.MessageCreate) bool {
 		return false
 	}
 
-	e := s.Channel(m.Message.ChannelID).Message(m.Message.ID).Delete()
+	e := s.Channel(m.ChannelID).Message(m.ID).Delete()
 	if e != nil {
 		log.Println(e)
 		return true
 	}
 
-	header := "**From " + m.Message.Author.Username + ":**"
-	content := m.Message.Content
+	header := "**From " + m.Author.Username + ":**"
+	content := m.Content
 
-	if m.Message.MessageReference != nil {
-		ref := m.Message.MessageReference
+	if m.MessageReference != nil {
+		ref := m.MessageReference
 		url := "https://discord.com/channels/" + ref.GuildID.String() + "/" + ref.ChannelID.String() + "/" + ref.MessageID.String()
 		header = header + "\n_Replying to: <" + url + ">_"
 	}
@@ -260,7 +268,7 @@ func pingBlock(s disgord.Session, m *disgord.MessageCreate) bool {
 		content = strings.ReplaceAll(content, "<@!"+user.ID.String()+">", user.Username)
 	}
 
-	_, e = s.SendMsg(m.Message.ChannelID, "@ Mentions Removed!\n"+header+"\n"+content)
+	_, e = s.SendMsg(m.ChannelID, "@ Mentions Removed!\n"+header+"\n"+content)
 	if e != nil {
 		log.Println(e)
 		return true
